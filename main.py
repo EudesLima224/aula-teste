@@ -6,10 +6,10 @@ HEIGHT = 900
 
 #variavel de controle
 running = False
-
 button_start = Rect((WIDTH // 2 - 150), 220, 300, 80)
 speed = 0
 indice_frame = 0
+animation = "idle"
 
 
 # Criar um Actor para a nuvem
@@ -27,9 +27,7 @@ grassy_grounds = [Actor("grassy_ground", (x, floor_height)) for x in range(0, WI
 #criação do personagem
 character = Actor("character_idle1", (100, HEIGHT - 147))
 #animação do personagem
-walking_frames = ["character_walk0"]
-for n in range(1, 7):
-    walking_frames.append(Actor(f"character_walk{n}"))
+walking_frames = [f"character_walk{n}" for n in range(7)]
 
 def draw():
     screen.clear()
@@ -52,7 +50,23 @@ def draw():
 
 
 def update():
-    global indice frame
+    global indice_frame, speed, animation
+    #verifica se ta andando
+    if keyboard.right or keyboard.D:
+        speed = 3
+        animation = "walking"
+        #character.x += speed
+    else:
+        speed = 0
+        animation = "idle"
+    #altera os frames da animação3
+    if animation == "walking":
+        character.image = walking_frames[indice_frame % len(walking_frames)]
+    #elif animation == "idle":
+     #   character.image = 
+    indice_frame = (indice_frame + 1) % len(walking_frames)
+
+
     global grassy_grounds
     #move o chão para a esquerda
     for floor in grassy_grounds:
