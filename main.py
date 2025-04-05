@@ -56,7 +56,17 @@ character_jump = "character_jump"
 
 #inimigos
 enemy_frames = [f"enemy_robot_walk{n}" for n in range(8)]
+enemy_attack_frame = [f"enemy_robot_attack{n}" for n in range(2)]
+enemy = {
+    "actor": Actor(enemy_frames[0], (WIDTH + 50, floor_height - 128)),
+    "frame_index": 0,
+    "attacking": False,
+    "attack_timer": 0,
+    "shot": False
+}
 enemies = []
+enemy_bullets = []
+
 enemy_spaw_time = 0
 indice_enemy = 0
 
@@ -196,8 +206,33 @@ def update():
     for enemy in enemies[:]:
         # Calcula distância horizontal
         distancia = abs(enemy["actor"].x - character.x)
-        if distancia > 700:  # só anda se estiver longe do personagem
-            enemy["actor"].x -= 3
+        if distancia <= 750:
+            enemy["attacking"] = True
+            enemy["attack_timer"] += 1
+
+            if enemy["attack_timer"] < 30:
+                enemy["actor"].image = enemy_attack_frame[0]  # pose parado
+            elif enemy["attack_timer"] == 30:
+                enemy["actor"].image = enemy_attack_frame[1]  # pose atirando
+                if not enemy["shot"]:
+                    bullet = Actor("bullet", (enemy["actor"].x - 40, enemy["actor"].y + 50))
+                    bullet.direction = -1
+                    enemy_bullets.append(bullet)
+                    enemy["shot"] = True
+            elif enemy["attack_timer"] > 60:
+                enemy["attack_timer"] = 0
+                enemy["shot"] = False
+        else:
+            enemy["attacking"] = False
+            enemy["actor"].x -= (2 + speed)
+            enemy["attack_timer"] = 0
+            enemy["shot"] = False
+
+            # Atualiza animação de caminhada
+            if frame_counter % 8 == 0:
+                enemy["frame_index"] = (enemy["frame_index"] + 1) % len(enemy_frames)
+                enemy["actor"].image = enemy_frames[enemy["frame_index"]]
+
 
         # Atualiza animação
         if frame_counter % 8 == 0:
@@ -208,17 +243,6 @@ def update():
         if enemy["actor"].x <= -50:
             enemies.remove(enemy)
     
-    for enemy in enemies:
-    
-
-        #print(enemy.x)
-        """for enemy in enemies[:]:  # cria uma cópia rasa da lista
-            enemy["actor"].x -= 3
-            if enemy["actor"].x <= -50:
-                enemies.remove(enemy)"""
-
-
-
     #move o chão para a esquerda
     for floor in grassy_grounds:
         floor.x -= speed

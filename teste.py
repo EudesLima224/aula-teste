@@ -1,144 +1,283 @@
 import pgzrun
-import pygame
-import time
+from pygame import Rect
 
-# Definir tamanho da tela
+# === CONFIGURAÇÕES ===
 WIDTH = 1200
 HEIGHT = 900
+FLOOR_HEIGHT = HEIGHT - 20
+CHARACTER_Y = FLOOR_HEIGHT - 128
+CLOUD_POSITIONS = [(200, 100), (650, 150)]
+FRAME_DELAY = 8
+music_on = True
 
-# Variável de controle
+
+# === VARIÁVEIS GLOBAIS ===
 running = False
-button_start = Rect((WIDTH // 2 - 150), 220, 300, 80)
 speed = 0
-indice_frame = 0
-animation = "idle"
-
-# Medir FPS
-frame_count = 0
-last_time = time.time()
-fps = 0
-
-# Delay animações
-frame_counter = 0
-frame_delay = 8
-
-# Criar nuvens
-cloud1 = Actor("cloud1", (200, 100))
-cloud2 = Actor("cloud2", (650, 150))
-clouds = [cloud1, cloud2]
-
-# Criar chão
-floor_height = HEIGHT - 20
-grassy_grounds = [Actor("grassy_ground", (x, floor_height)) for x in range(0, WIDTH + 64 + 64, 64)]  
-
-# Criar personagem
-character_height = HEIGHT - 147
-animation_now = "character_idle0"
-character = Actor(animation_now, (300, character_height))
-
-# Variáveis do pulo e gravidade
 speed_y = 0
-gravity = 0.5
-jump_strength = -10
+gravity = 0.8
+jump_strength = -18
 on_ground = True
+frame_counter = 0
+shot_cooldown = 0
+shooting = False
+enemy_spawn_timer = 0
 
-# Animações do personagem
-walking_frames = [f"character_walk{n}" for n in range(8)]
-character_idle = [f"character_idle{n}" for n in range(3)]
-indice_idle_frame = 0
-indice_walking_frame = 0
+# === INTERFACE ===
+button_start = Rect((WIDTH // 2 - 150), 220, 300, 80)
+button_music = Rect((WIDTH // 2 - 300), 500, 130, 80)
+
+# === CENÁRIO ===
+clouds = [Actor(f"cloud{i+1}", pos) for i, pos in enumerate(CLOUD_POSITIONS)]
+grassy_grounds = [Actor("grassy_ground", (x, FLOOR_HEIGHT)) for x in range(0, WIDTH + 128, 64)]
+
+# === PERSONAGEM ===
+character = Actor("character_idle0", (300, CHARACTER_Y))
+animation_state = "idle"
+indice_idle = indice_walk = indice_gun = 0
+character_idle = [f"character_idle{i}" for i in range(3)]
+character_walk = [f"character_walk{i}" for i in range(8)]
+character_gun = [f"character_gun{i}" for i in range(3)]
 character_jump = "character_jump"
+bullets = []
 
+# === INIMIGOS ===
+enemies = []
+enemy_frames = [f"enemy_robot_walk{i}" for i in range(8)]
+enemy_attack_frames = [f"enemy_robot_attack{i}" for i in range(2)]
+enemy_bullets = []
+
+# === FUNÇÕES PRINCIPAIS ===
 def draw():
     screen.clear()
-    screen.fill((135, 206, 250))  # Cor de fundo azul (céu)
-    screen.draw.text(f"FPS: {int(fps)}", (10, 10), fontsize=30, color="white")
-
-    # Menu inicial
+    screen.fill((135, 206, 250))
+    start_music()
     if not running:
-        for cloud in clouds:
-            cloud.draw()
-        screen.draw.filled_rect(Rect((WIDTH // 2 - 150), 45, 300, 80), "blue")
-        screen.draw.text("Meu Jogo", (270, 60), fontsize=80, color="white")
-        screen.draw.filled_rect(button_start, "blue")
-        screen.draw.text("iniciar", (320, 240), fontsize=60, color="white")
+        draw_menu()
     else:
-        for floor in grassy_grounds:
-            floor.draw()  
-        character.y = character_height  # Atualiza a posição do personagem
-        character.draw()
-
+        draw_gameplay()
 
 def update():
-    global last_time, frame_count, fps
-    frame_count += 1
-    current_time = time.time()
-    elapsed_time = current_time - last_time
+    if not running:
+        return
 
-    # Atualiza o FPS a cada segundo
-    if elapsed_time >= 1:
-        fps = frame_count / elapsed_time
-        frame_count = 0
-        last_time = current_time
-
-    global indice_frame, speed, animation, frame_counter, character_height
-    global speed_y, on_ground, jump_strength
-
-    # Movimento lateral
-    if keyboard.right or keyboard.D:
-        speed = 3
-        animation = "walking"
-
-    # Pulo
-    if (keyboard.up or keyboard.W) and on_ground:
-        animation = "jump"
-        speed_y = jump_strength
-        on_ground = False
-
-    # Gravidade
-    speed_y += gravity  # Aplica a gravidade
-    character_height += speed_y  # Atualiza a altura do personagem
-
-    # Verifica colisão com o chão
-    if character_height >= HEIGHT - 147:
-        character_height = HEIGHT - 147
-        speed_y = 0
-        on_ground = True
-
-    # Controle de frames da animação
-    frame_counter += 1
-    global indice_idle_frame, indice_walking_frame, animation_now
-
-    if animation == "walking":
-        if frame_counter >= 8:
-            frame_counter = 0
-            animation_now = walking_frames[indice_walking_frame % len(walking_frames)]
-            indice_walking_frame = (indice_walking_frame + 1) % len(walking_frames)
-
-    elif animation == "jump":
-        animation_now = character_jump
-
-    if animation == "idle":
-        speed = 0
-        if frame_counter >= 20:
-            frame_counter = 0
-            animation_now = character_idle[indice_idle_frame % len(character_idle)]
-            indice_idle_frame = (indice_idle_frame + 1) % len(character_idle)
-
-    # Movimentação do chão
-    for floor in grassy_grounds:
-        floor.x -= speed
-    if grassy_grounds[0].x < -64:
-        grassy_grounds.pop(0)
-        new_grassy_ground = Actor("grassy_ground", (grassy_grounds[-1].x + 64, floor_height))
-        grassy_grounds.append(new_grassy_ground)
+    update_player_input()
+    update_character()
+    update_bullets()
+    update_enemy_bullets()  # <- Adicionado aqui
+    update_enemies()
+    update_floor()
 
 
 def on_mouse_down(pos):
-    global running
+    global running, music_on
     if not running and button_start.collidepoint(pos):
         running = True
+    if not running and button_music.collidepoint(pos):
+        music_on = not music_on
+        if music_on:
+            print("Música ligada")
+            start_music()
+        else:
+            print("Música desligada")
+            stop_music()
 
 
-# Iniciar o jogo
+# === DESENHO ===
+def draw_menu():
+    for cloud in clouds:
+        cloud.draw()
+
+    screen.draw.filled_rect(Rect((WIDTH // 2 - 250), 45, 500, 80), "blue")
+    screen.draw.text("Robotic Adventures", ((WIDTH // 2 - 200), 65), fontsize=60, color="white")
+    screen.draw.filled_rect(button_start, "blue")
+    screen.draw.text("iniciar", ((WIDTH // 2 - 65), 240), fontsize=60, color="white")
+    #botão musica
+    screen.draw.filled_rect(button_music, "blue")
+    screen.draw.text("music", ((WIDTH // 2 - 60), 80), fontsize=60, color="white")
+
+def draw_gameplay():
+    for floor in grassy_grounds:
+        floor.draw()
+
+    character.draw()
+
+    for bullet in bullets:
+        bullet.draw()
+
+    for enemy in enemies:
+        enemy["actor"].draw()
+
+    for bullet in enemy_bullets:
+        bullet.draw()
+
+
+# === CONTROLE DO JOGADOR ===
+def update_player_input():
+    global speed, speed_y, on_ground, shooting, animation_state, shot_cooldown
+
+    keys = keyboard
+    if (keys.right or keys.d):
+        speed = 3
+        animation_state = "walking"
+    elif on_ground:
+        speed = 0
+        animation_state = "idle"
+
+    if (keys.up or keys.w) and on_ground:
+        animation_state = "jump"
+        speed_y = jump_strength
+        on_ground = False
+
+    if keys.lctrl and shot_cooldown == 0:
+        shooting = True
+
+# === ANIMAÇÃO DO PERSONAGEM ===
+def update_character():
+    global frame_counter, character, speed_y, on_ground
+    global animation_state, indice_idle, indice_walk, indice_gun, shot_cooldown, shooting
+
+    frame_counter += 1
+
+    if animation_state == "walking" and on_ground:
+        if frame_counter >= FRAME_DELAY:
+            character.image = character_walk[indice_walk % len(character_walk)]
+            indice_walk += 1
+            frame_counter = 0
+
+    elif animation_state == "jump":
+        character.image = character_jump
+
+    elif animation_state == "idle":
+        if frame_counter >= 20:
+            character.image = character_idle[indice_idle % len(character_idle)]
+            indice_idle = (indice_idle + 1) % len(character_idle)
+            frame_counter = 0
+
+    if shooting and shot_cooldown == 0:
+        if frame_counter >= 1:
+            character.image = character_gun[indice_gun % len(character_gun)]
+            indice_gun += 1
+            frame_counter = 0
+            if indice_gun >= len(character_gun):
+                indice_gun = 0
+                shooting = False
+                shot_cooldown = 20
+                bullets.append(Actor("bullet", (character.x + 80, character.y + 50)))
+
+    if shot_cooldown > 0:
+        shot_cooldown -= 1
+
+    # Gravidade
+    speed_y += gravity
+    character.y += speed_y
+
+    for floor in grassy_grounds:
+        if character.colliderect(floor):
+            character.y = floor.top - character.height / 2
+            speed_y = 0
+            on_ground = True
+            break
+
+# === TIROS DO JOGADOR ===
+def update_bullets():
+    for bullet in bullets[:]:
+        bullet.x += 10
+        if bullet.x > WIDTH + 50:
+            bullets.remove(bullet)
+        else:
+            for enemy in enemies[:]:
+                if bullet.colliderect(enemy["actor"]):
+                    enemies.remove(enemy)
+                    if bullet in bullets:
+                        bullets.remove(bullet)
+                    break
+
+# === INIMIGOS ===
+def update_enemies():
+    global enemy_spawn_timer
+    enemy_spawn_timer += 1
+
+    if enemy_spawn_timer >= 90:
+        spawn_enemy()
+        enemy_spawn_timer = 0
+
+    for enemy in enemies[:]:
+        update_enemy(enemy)
+        if enemy["actor"].x <= -50:
+            enemies.remove(enemy)
+
+def spawn_enemy():
+    enemy = {
+        "actor": Actor(enemy_frames[0], (WIDTH + 50, FLOOR_HEIGHT - 128)),
+        "frame_index": 0,
+        "attacking": False,
+        "attack_timer": 0,
+        "shot": False
+    }
+    enemies.append(enemy)
+
+def update_enemy(enemy):
+    dist = abs(enemy["actor"].x - character.x)
+    if dist <= 750:
+        enemy["attacking"] = True
+        enemy["attack_timer"] += 1
+        enemy["actor"].x -= speed
+
+
+        if enemy["attack_timer"] < 30:
+            enemy["actor"].image = enemy_attack_frames[0]
+        elif enemy["attack_timer"] == 30:
+            enemy["actor"].image = enemy_attack_frames[1]
+            if not enemy["shot"]:
+                bullet = Actor("bullet", (enemy["actor"].x - 40, enemy["actor"].y + 50))
+                bullet.direction = -1
+                enemy_bullets.append(bullet)
+                enemy["shot"] = True
+        elif enemy["attack_timer"] > 60:
+            enemy["attack_timer"] = 0
+            enemy["shot"] = False
+    else:
+        enemy["actor"].x -= (2 + speed)
+        enemy["attacking"] = False
+        enemy["attack_timer"] = 0
+        enemy["shot"] = False
+
+        if frame_counter % 8 == 0:
+            enemy["frame_index"] = (enemy["frame_index"] + 1) % len(enemy_frames)
+            enemy["actor"].image = enemy_frames[enemy["frame_index"]]
+
+# === CHÃO ===
+def update_floor():
+    for floor in grassy_grounds:
+        floor.x -= speed
+
+    if grassy_grounds[0].x < -64:
+        grassy_grounds.pop(0)
+        new_floor = Actor("grassy_ground", (grassy_grounds[-1].x + 64, FLOOR_HEIGHT))
+        grassy_grounds.append(new_floor)
+
+def update_enemy_bullets():
+    for bullet in enemy_bullets[:]:
+        bullet.x += bullet.direction * 10
+        if bullet.right < 0 or bullet.left > WIDTH:
+            enemy_bullets.remove(bullet)
+        elif bullet.colliderect(character):
+            print("Personagem atingido!")
+            enemy_bullets.remove(bullet)
+
+# === MUSICA ===
+def start_music():
+    if music_on and not music.is_playing("music"):
+        music.set_volume(0.6)
+        music.play("music")  # Substitua pelo nome correto da música
+        music.queue("music")
+
+def stop_music():
+    if music.is_playing("music"):
+        music.stop()
+
+
+
+# === INICIAR O JOGO ===
 pgzrun.go()
