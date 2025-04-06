@@ -1,5 +1,6 @@
 import pgzrun
 from pygame import Rect
+import random
 
 # === CONFIGURAÇÕES ===
 WIDTH = 1200
@@ -38,6 +39,7 @@ animation_state = "idle"
 indice_idle = indice_walk = indice_gun = 0
 character_idle = [f"character_idle{i}" for i in range(3)]
 character_walk = [f"character_walk{i}" for i in range(8)]
+character_walk_left = [f"character_walk_left{i}" for i in range(8)]
 character_gun = [f"character_gun{i}" for i in range(3)]
 character_jump = "character_jump"
 bullets = []
@@ -129,7 +131,7 @@ def update_player_input():
         character.flip_x = False
     elif keys.left or keys.a:
         player_direction = -1
-        animation_state = "walking"
+        animation_state = "walking_left"
         character.flip_x = True
     elif on_ground:
         animation_state = "idle"
@@ -153,6 +155,12 @@ def update_character():
     if animation_state == "walking" and on_ground:
         if frame_counter >= FRAME_DELAY:
             character.image = character_walk[indice_walk % len(character_walk)]
+            character.flip_x = player_direction < 0
+            indice_walk += 1
+            frame_counter = 0
+    if animation_state == "walking_left" and on_ground:
+        if frame_counter >= FRAME_DELAY:
+            character.image = character_walk_left[indice_walk % len(character_walk_left)]
             character.flip_x = player_direction < 0
             indice_walk += 1
             frame_counter = 0
@@ -216,7 +224,7 @@ def update_enemies():
     global enemy_spawn_timer
     enemy_spawn_timer += 1
 
-    if enemy_spawn_timer >= 90:
+    if enemy_spawn_timer >= random.randint(40, 5340):
         spawn_enemy()
         enemy_spawn_timer = 0
 
