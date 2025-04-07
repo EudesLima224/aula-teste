@@ -36,15 +36,26 @@ button_sound = Rect((WIDTH // 2 + 20), 500, 180, 80)
 clouds = [Actor(f"cloud{i+1}", pos) for i, pos in enumerate(CLOUD_POSITIONS)]
 grassy_grounds = [Actor("grassy_ground", (x, FLOOR_HEIGHT)) for x in range(0, WIDTH + 128, 64)]
 
+
+class Character:
+    def __init__(self):
+        global CHARACTER_Y
+        self.actor = Actor("character_idle0", (250, CHARACTER_Y))
+        self.animation_state = "idle"
+        self.indice_idle = 0
+        self.indice_walk = 0
+        self.indice_gun = 0
+        self.idle = [f"character_idle{i}" for i in range(3)]
+        self.walk = [f"character_walk{i}" for i in range(8)]
+        self.walk_left = [f"character_walk_left{i}" for i in range(8)]
+        self.gun = [f"character_gun{i}" for i in range(3)]
+        self.jump = "character_jump"
+        self.location = {"x": 150, "y": CHARACTER_Y}
+    def draw(self):
+        self.actor.draw()
+
 # === PERSONAGEM ===
-character = Actor("character_idle0", (250, CHARACTER_Y))
-animation_state = "idle"
-indice_idle = indice_walk = indice_gun = 0
-character_idle = [f"character_idle{i}" for i in range(3)]
-character_walk = [f"character_walk{i}" for i in range(8)]
-character_walk_left = [f"character_walk_left{i}" for i in range(8)]
-character_gun = [f"character_gun{i}" for i in range(3)]
-character_jump = "character_jump"
+player = Character()
 
 # ===munição===
 bullets = []
@@ -147,7 +158,7 @@ def draw_gameplay():
     for floor in grassy_grounds:
         floor.draw()
 
-    character.draw()
+    player.draw()
 
     for bullet in bullets:
         bullet.draw()
@@ -187,8 +198,8 @@ def reset_game():
     speed = 0
     speed_y = 0
     on_ground = True
-    character.x = 300
-    character.y = CHARACTER_Y
+    player.location["x"] = 300
+    player.location["y"] = CHARACTER_Y
     life_character = 5
     life_position = {"x": 20, "y": 20}
     for life in range(life_character):
@@ -204,27 +215,27 @@ def reset_game():
 
 # === CONTROLE DO JOGADOR ===
 def update_player_input():
-    global player_direction, speed_y, on_ground, shooting, animation_state, shot_cooldown
+    global player_direction, speed_y, on_ground, shooting, shot_cooldown
 
     keys = keyboard
     player_direction = 0
 
     if keys.right or keys.d:
         player_direction = 1
-        animation_state = "walking"
-        character.flip_x = False
+        player.animation_state = "walking"
     elif keys.left or keys.a:
         player_direction = -1
-        animation_state = "walking_left"
+        player.animation_state = "walking_left"
     elif on_ground:
-        animation_state = "idle"
+        player.animation_state = "idle"
 
     if (keys.up or keys.w) and on_ground:
-        animation_state = "jump"
+        on_ground = False
+        player.animation_state = "jump"
         speed_y = jump_strength
         if sound_on:
             sounds.jump1.play()
-        on_ground = False
+
 
     if keys.lctrl and shot_cooldown == 0 and len(bullets_magazine) > 0:
             shooting = True
@@ -232,40 +243,40 @@ def update_player_input():
 # === ANIMAÇÃO DO PERSONAGEM ===
 def update_character():
     global frame_counter, character, speed_y, on_ground
-    global animation_state, indice_idle, indice_walk, indice_gun, shot_cooldown, shooting
+    global indice_idle, indice_walk, indice_gun, shot_cooldown, shooting
 
     frame_counter += 1
 
     # Atualiza a animação do personagem
-    if animation_state == "walking" and on_ground:
+    if player.animation_state == "walking" and on_ground:
         if frame_counter >= FRAME_DELAY:
-            character.image = character_walk[indice_walk % len(character_walk)]
-            indice_walk += 1
+            player.actor.image = player.walk[player.indice_walk % len(player.walk)]
+            player.indice_walk += 1
             frame_counter = 0
-    if animation_state == "walking_left" and on_ground:
+    if player.animation_state == "walking_left" and on_ground:
         if frame_counter >= FRAME_DELAY:
-            character.image = character_walk_left[indice_walk % len(character_walk_left)]
-            indice_walk += 1
+            player.actor.image = player.walk_left[player.indice_walk % len(player.walk_left)]
+            player.indice_walk += 1
             frame_counter = 0
-    elif animation_state == "jump":
-        character.image = character_jump
-    elif animation_state == "idle":
+    elif player.animation_state == "jump":
+        player.actor.image = player.jump
+    elif player.animation_state == "idle":
         if frame_counter >= 20:
-            character.image = character_idle[indice_idle % len(character_idle)]
-            indice_idle = (indice_idle + 1) % len(character_idle)
+            player.actor.image = player.idle[player.indice_idle % len(player.idle)]
+            player.indice_idle = (player.indice_idle + 1) % len(player.idle)
             frame_counter = 0
 
     # Animação de tiro
     if shooting and shot_cooldown == 0:
         if frame_counter >= 1:
-            character.image = character_gun[indice_gun % len(character_gun)]
-            indice_gun += 1
+            player.image = player.gun[player.indice_gun % len(player.gun)]
+            player.indice_gun += 1
             frame_counter = 0
-            if indice_gun >= len(character_gun):
+            if player.indice_gun >= len(player.gun):
                 indice_gun = 0
                 shooting = False
                 shot_cooldown = 20
-                bullets.append(Actor("bullet", (character.x + 80, character.y + 50)))
+                bullets.append(Actor("bullet", (player.location["x"] + 80, player.location["y"] + 50)))
                 bullets_magazine.pop(-1)
                 if sound_on:
                     sounds.laserretro_004.play()
@@ -275,21 +286,24 @@ def update_character():
 
     # Gravidade
     speed_y += gravity
-    character.y += speed_y
+    player.location["y"] += speed_y
+    player.actor.y = player.location["y"]
+    player.actor.x = player.location["x"]
+
 
     for floor in grassy_grounds:
-        if character.colliderect(floor):
-            character.y = floor.top - character.height / 2
+        if player.actor.colliderect(floor):
+            player.location["y"] = floor.top - player.actor.height / 2
             speed_y = 0
             on_ground = True
             break
 
     # Movimento horizontal com limites de tela
     if player_direction != 0:
-        if player_direction == -1 and character.x > CHARACTER_LIMIT_LEFT:
-            character.x += player_direction * 3
-        elif player_direction == 1 and character.x < CHARACTER_LIMIT_RIGHT:
-            character.x += player_direction * 3
+        if player_direction == -1 and player.location["x"] > CHARACTER_LIMIT_LEFT:
+            player.location["x"] += player_direction * 3
+        elif player_direction == 1 and player.location["x"] < CHARACTER_LIMIT_RIGHT:
+            player.location["x"] += player_direction * 3
         else:
             if player_direction == 1:
                 move_world(-3)
@@ -350,7 +364,7 @@ def spawn_enemy():
     enemies.append(enemy)
 
 def update_enemy(enemy):
-    dist = abs(enemy["actor"].x - character.x)
+    dist = abs(enemy["actor"].x - player.location["x"])
     if dist <= 750:
         enemy["attacking"] = True
         enemy["attack_timer"] += 1
@@ -396,7 +410,7 @@ def update_enemy_bullets():
         bullet.x += bullet.direction * 10
         if bullet.right < 0 or bullet.left > WIDTH:
             enemy_bullets.remove(bullet)
-        elif bullet.colliderect(character):
+        elif bullet.colliderect(player.actor):
             life_character -= 1
             if life_character >= 0:
                 lifes_character.pop(-1)
