@@ -1,14 +1,5 @@
-import pgzero
-import pgzrun
+def on_mouse_down(pos, button):
+    if button == mouse.LEFT:
+        print("Clique esquerdo do mouse detectado!", pos)
 
-WIDTH = 800
-HEIGHT = 800
-
-img = Actor("enemy_robot_walk0", (300, 300))
-
-
-img.image = "enemy_robot_walk0"
-img.flip_x(img)
-def draw():
-    img.draw()
-pgzrun.go()
+on_mouse_down()

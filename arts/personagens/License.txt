@@ -1,9 +1,9 @@
 	
 
-	Toon Characters Pack 1
+	Board Game Icons (1.1)
 
 	Created/distributed by Kenney (www.kenney.nl)
-	Creation date: 26-09-2019
+	Creation date: 22-07-2024
 
 			------------------------------
 
@@ -16,7 +16,6 @@
 			------------------------------
 
 	Donate:   http://support.kenney.nl
-	Request:  http://request.kenney.nl
 	Patreon:  http://patreon.com/kenney/
 
 	Follow on Twitter for updates:
